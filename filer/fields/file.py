@@ -1,9 +1,11 @@
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
+
 import warnings
 
 from django import forms
 from django.contrib.admin.widgets import ForeignKeyRawIdWidget
 from django.contrib.admin.sites import site
+from django.contrib.staticfiles.templatetags.staticfiles import static
 from django.core.urlresolvers import reverse
 from django.db import models
 from django.template.loader import render_to_string
@@ -17,6 +19,7 @@ from filer import settings as filer_settings
 import logging
 logger = logging.getLogger(__name__)
 
+
 class AdminFileWidget(ForeignKeyRawIdWidget):
     choices = None
 
@@ -29,35 +32,29 @@ class AdminFileWidget(ForeignKeyRawIdWidget):
         if value:
             try:
                 file_obj = File.objects.get(pk=value)
-                related_url = file_obj.logical_folder.\
-                                get_admin_directory_listing_url_path()
+                related_url = file_obj.logical_folder.get_admin_directory_listing_url_path()
             except Exception as e:
                 # catch exception and manage it. We can re-raise it for debugging
                 # purposes and/or just logging it, provided user configured
                 # proper logging configuration
                 if filer_settings.FILER_ENABLE_LOGGING:
-                    logger.error('Error while rendering file widget: %s',e)
+                    logger.error('Error while rendering file widget: %s', e)
                 if filer_settings.FILER_DEBUG:
                     raise
         if not related_url:
             related_url = reverse('admin:filer-directory_listing-last')
         params = self.url_parameters()
         if params:
-            lookup_url = '?' + '&amp;'.join(
-                                ['%s=%s' % (k, v) for k, v in list(params.items())])
+            lookup_url = '?' + '&amp;'.join(['%s=%s' % (k, v) for k, v in list(params.items())])
         else:
             lookup_url = ''
-        if not 'class' in attrs:
+        if 'class' not in attrs:
             # The JavaScript looks for this hook.
             attrs['class'] = 'vForeignKeyRawIdAdminField'
         # rendering the super for ForeignKeyRawIdWidget on purpose here because
         # we only need the input and none of the other stuff that
         # ForeignKeyRawIdWidget adds
-        hidden_input = super(ForeignKeyRawIdWidget, self).render(
-                                                            name, value, attrs)
-        filer_static_prefix = filer_settings.FILER_STATICMEDIA_PREFIX
-        if not filer_static_prefix[-1] == '/':
-            filer_static_prefix += '/'
+        hidden_input = super(ForeignKeyRawIdWidget, self).render(name, value, attrs)
         context = {
             'hidden_input': hidden_input,
             'lookup_url': '%s%s' % (related_url, lookup_url),
@@ -65,7 +62,6 @@ class AdminFileWidget(ForeignKeyRawIdWidget):
             'span_id': css_id_description_txt,
             'object': obj,
             'lookup_name': name,
-            'filer_static_prefix': filer_static_prefix,
             'clear_id': '%s_clear' % css_id,
             'id': css_id,
         }
@@ -84,10 +80,10 @@ class AdminFileWidget(ForeignKeyRawIdWidget):
             obj = None
         return obj
 
-    class Media:
+    class Media(object):
         js = (
-            filer_settings.FILER_STATICMEDIA_PREFIX + 'js/popup_handling.js',
-            filer_settings.FILER_STATICMEDIA_PREFIX + 'js/widget.js',
+            static('filer/js/addons/popup_handling.js'),
+            static('filer/js/addons/widget.js'),
         )
 
 

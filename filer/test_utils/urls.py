@@ -1,4 +1,5 @@
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
+
 from django.conf import settings
 from django.conf.urls import patterns, url, include
 from django.contrib import admin
@@ -10,4 +11,5 @@ urlpatterns = patterns('',
         {'document_root': settings.MEDIA_ROOT, 'show_indexes': True}),
     url(r'^admin/', include(admin.site.urls)),
     url(r'^', include('filer.server.urls')),
+    url(r'^filer/', include('filer.urls')),
 )

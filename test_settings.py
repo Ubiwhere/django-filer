@@ -2,7 +2,11 @@
 import os
 from tempfile import mkdtemp
 
-gettext = lambda s: s
+
+def gettext(s):
+    return s
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 HELPER_SETTINGS = {
     'NOSE_ARGS': [
@@ -50,7 +54,10 @@ HELPER_SETTINGS = {
         'easy_thumbnails.processors.filters',
     ),
     'FILE_UPLOAD_TEMP_DIR': mkdtemp(),
-    'FILER_IMAGE_MODEL': False
+    'FILER_IMAGE_MODEL': False,
+    'TEMPLATE_DIRS': (os.path.join(BASE_DIR, 'django-filer', 'filer',
+                                   'test_utils', 'templates'),),
+    'FILER_CANONICAL_URL': 'test-path/',
 
 }
 if os.environ.get('CUSTOM_IMAGE', False):

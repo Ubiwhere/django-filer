@@ -1,7 +1,8 @@
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
+
 from django import forms
 from django.utils.translation import ugettext as _
-from filer import settings as filer_settings
+
 from filer.admin.fileadmin import FileAdmin
 from filer.models import Image
 
@@ -23,17 +24,16 @@ class ImageAdminForm(forms.ModelForm):
         else:
             return ''
 
-    class Meta:
+    class Meta(object):
         model = Image
         exclude = ()
 
-    class Media:
+    class Media(object):
         css = {
-            #'all': (settings.MEDIA_URL + 'filer/css/focal_point.css',)
+            # 'all': (settings.MEDIA_URL + 'filer/css/focal_point.css',)
         }
         js = (
-            filer_settings.FILER_STATICMEDIA_PREFIX + 'js/raphael.js',
-            filer_settings.FILER_STATICMEDIA_PREFIX + 'js/focal_point.js',
+
         )
 
 

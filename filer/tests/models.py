@@ -6,7 +6,12 @@ from django.conf import settings
 from django.core.files import File as DjangoFile
 from django.forms.models import modelform_factory
 from django.test import TestCase
-from django.utils.unittest import skipIf, skipUnless
+
+try:
+    from unittest import skipIf, skipUnless
+except ImportError:
+    # Django<1.9
+    from django.utils.unittest import skipIf, skipUnless
 
 from filer.models.foldermodels import Folder
 from filer.models.imagemodels import Image
@@ -149,7 +154,24 @@ class FilerApiTests(TestCase):
         self.assertTrue(image.file.path.startswith(filer_settings.FILER_PRIVATEMEDIA_STORAGE.location))
         self.assertEqual(len(image.icons), len(filer_settings.FILER_ADMIN_ICON_SIZES))
 
-    def test_deleting_image_deletes_file_from_filesystem(self):
+    def test_deleting_files(self):
+        # Note: this first test case fails deep inside
+        # easy-thumbnails thumbnail generation with a segmentation fault
+        # (which probably indicates a fail inside C extension or reaching
+        # CPython stack limits) under certain conditions:
+        #  - if the previous test case had the create_filer_image() call
+        #  - under python 3.x
+        #  - once out of 3-4 runs
+        # It happens on completely different systems (locally and on Travis).
+        # Current tearDown() does not help, nor does cleaning up temp directory
+        # nor django cache.
+        # So the workaround for now is to run them in a defined order like one
+        # real test case. We do not care for setUp() or tearDown() between the
+        # two since there are enough asserts in the code.
+        self._test_deleting_image_deletes_file_from_filesystem()
+        self._test_deleting_file_does_not_delete_file_from_filesystem_if_other_references_exist()
+
+    def _test_deleting_image_deletes_file_from_filesystem(self):
         file_1 = self.create_filer_image()
         self.assertTrue(file_1.file.storage.exists(file_1.file.name))
 
@@ -171,7 +193,7 @@ class FilerApiTests(TestCase):
         for tn in thumbnails:
             self.assertFalse(tn.storage.exists(tn.name))
 
-    def test_deleting_file_does_not_delete_file_from_filesystem_if_other_references_exist(self):
+    def _test_deleting_file_does_not_delete_file_from_filesystem_if_other_references_exist(self):
         file_1 = self.create_filer_image()
         # create another file that references the same physical file
         file_2 = File.objects.get(pk=file_1.pk)
@@ -223,3 +245,47 @@ class FilerApiTests(TestCase):
 
             reloaded = Image.objects.get(pk=image.pk)
             self.assertEqual(reloaded.author, image.author)
+
+    def test_canonical_url(self):
+        """
+        Check that a public file's canonical url redirects to the file's current version
+        """
+        image = self.create_filer_image()
+        image.save()
+        # Private file
+        image.is_public = False
+        image.save()
+        canonical = image.canonical_url
+        self.assertEqual(self.client.get(canonical).status_code, 404)
+        # First public version
+        image.is_public = True
+        image.save()
+        canonical = image.canonical_url
+        file_url_1 = image.file.url
+        self.assertRedirects(self.client.get(canonical), file_url_1)
+        # Second public version
+        img_2 = create_image()
+        image_name_2 = 'test_file_2.jpg'
+        filename_2 = os.path.join(settings.FILE_UPLOAD_TEMP_DIR, image_name_2)
+        img_2.save(filename_2, 'JPEG')
+        file_2 = DjangoFile(open(filename_2, 'rb'), name=image_name_2)
+        image.file = file_2
+        image.save()
+        file_url_2 = image.file.url
+        self.assertNotEqual(file_url_1, file_url_2)
+        self.assertRedirects(self.client.get(canonical), file_url_2)
+        # No file
+        image.file = None
+        image.save()
+        self.assertEqual(self.client.get(canonical).status_code, 404)
+        # Teardown
+        image.file = file_2
+        image.save()
+        os.remove(filename_2)
+
+    def test_canonical_url_settings(self):
+        image = self.create_filer_image()
+        image.save()
+        canonical = image.canonical_url
+        self.assertTrue(canonical.startswith('/filer/test-path/'))
+

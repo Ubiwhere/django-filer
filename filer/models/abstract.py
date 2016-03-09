@@ -1,5 +1,15 @@
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 import os
+
+from django.db import models
+from django.utils import six
+from django.utils.translation import ugettext_lazy as _
+
+from filer import settings as filer_settings
+from filer.models.filemodels import File
+from filer.utils.filer_easy_thumbnails import FilerThumbnailer
+from filer.utils.pil_exif import get_exif_for_file
+
 try:
     from PIL import Image as PILImage
 except ImportError:
@@ -10,15 +20,6 @@ except ImportError:
 
 import logging
 logger = logging.getLogger(__name__)
-
-from django.db import models
-from django.utils import six
-from django.utils.translation import ugettext_lazy as _
-
-from filer import settings as filer_settings
-from filer.models.filemodels import File
-from filer.utils.filer_easy_thumbnails import FilerThumbnailer
-from filer.utils.pil_exif import get_exif_for_file
 
 
 class BaseImage(File):
@@ -139,7 +140,7 @@ class BaseImage(File):
                 # purposes and/or just logging it, provided user configured
                 # proper logging configuration
                 if filer_settings.FILER_ENABLE_LOGGING:
-                    logger.error('Error while generating thumbnail: %s',e)
+                    logger.error('Error while generating thumbnail: %s', e)
                 if filer_settings.FILER_DEBUG:
                     raise
         return _thumbnails
@@ -167,7 +168,7 @@ class BaseImage(File):
             thumbnail_basedir=self.file.thumbnail_basedir)
         return tn
 
-    class Meta:
+    class Meta(object):
         app_label = 'filer'
         verbose_name = _('image')
         verbose_name_plural = _('images')

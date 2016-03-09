@@ -1,19 +1,20 @@
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
+
 from django import forms
-from django.contrib.admin.util import unquote
 from django.core.urlresolvers import reverse
 from django.http import HttpResponseRedirect
 from django.utils.translation import ugettext as _
+
 from filer import settings
 from filer.admin.permissions import PrimitivePermissionAwareModelAdmin
 from filer.models import File, Image
-from filer.utils.compatibility import DJANGO_1_5
+from filer.utils.compatibility import DJANGO_1_5, unquote
 from filer.views import (popup_param, selectfolder_param, popup_status,
                          selectfolder_status)
 
 
 class FileAdminChangeFrom(forms.ModelForm):
-    class Meta:
+    class Meta(object):
         model = File
         exclude = ()
 
@@ -23,7 +24,7 @@ class FileAdmin(PrimitivePermissionAwareModelAdmin):
     list_per_page = 10
     search_fields = ['name', 'original_filename', 'sha1', 'description']
     raw_id_fields = ('owner',)
-    readonly_fields = ('sha1',)
+    readonly_fields = ('sha1', 'display_canonical')
 
     # save_as hack, because without save_as it is impossible to hide the
     # save_and_add_another if save_as is False. To show only save_and_continue
@@ -39,16 +40,17 @@ class FileAdmin(PrimitivePermissionAwareModelAdmin):
         return super(FileAdmin, self).get_queryset(request)
 
     @classmethod
-    def build_fieldsets(cls, extra_main_fields=(), extra_advanced_fields=(), extra_fieldsets=()):
+    def build_fieldsets(cls, extra_main_fields=(), extra_advanced_fields=(),
+                        extra_fieldsets=()):
         fieldsets = (
             (None, {
-                'fields': ('name', 'owner', 'description',) + extra_main_fields,
+                'fields': ('name', 'owner', 'description', ) + extra_main_fields,  # flake8: noqa
             }),
             (_('Advanced'), {
-                'fields': ('file', 'sha1',) + extra_advanced_fields,
+                'fields': ('file', 'sha1', 'display_canonical', ) + extra_advanced_fields,  # flake8: noqa
                 'classes': ('collapse',),
-                }),
-            ) + extra_fieldsets
+            }),
+        ) + extra_fieldsets
         if settings.FILER_ENABLE_PERMISSIONS:
             fieldsets = fieldsets + (
                 (None, {
@@ -66,16 +68,16 @@ class FileAdmin(PrimitivePermissionAwareModelAdmin):
         if 'Location' in r and r['Location']:
             # it was a successful save
             if (r['Location'] in ['../'] or
-                r['Location'] == self._get_post_url(obj)):
+                    r['Location'] == self._get_post_url(obj)):
                 # this means it was a save: redirect to the directory view
                 if obj.folder:
                     url = reverse('admin:filer-directory_listing',
                                   kwargs={'folder_id': obj.folder.id})
                 else:
                     url = reverse(
-                            'admin:filer-directory_listing-unfiled_images')
-                url = "%s%s%s" % (url,popup_param(request),
-                                  selectfolder_param(request,"&"))
+                        'admin:filer-directory_listing-unfiled_images')
+                url = "%s%s%s" % (url, popup_param(request),
+                                  selectfolder_param(request, "&"))
                 return HttpResponseRedirect(url)
             else:
                 # this means it probably was a save_and_continue_editing
@@ -86,7 +88,7 @@ class FileAdmin(PrimitivePermissionAwareModelAdmin):
                            form_url='', obj=None):
         extra_context = {'show_delete': True,
                          'is_popup': popup_status(request),
-                         'select_folder': selectfolder_status(request),}
+                         'select_folder': selectfolder_status(request), }
         context.update(extra_context)
         return super(FileAdmin, self).render_change_form(
             request=request, context=context, add=False, change=False,
@@ -114,8 +116,8 @@ class FileAdmin(PrimitivePermissionAwareModelAdmin):
 
         url = r.get("Location", None)
         # Account for custom Image model
-        image_change_list_url_name = 'admin:{0}_{1}_changelist'.format(Image._meta.app_label,
-                                                                       Image._meta.model_name)
+        image_change_list_url_name = 'admin:{0}_{1}_changelist'.format(
+            Image._meta.app_label, Image._meta.model_name)
         # Check against filer_file_changelist as file deletion is always made by
         # the base class
         if (url in ["../../../../", "../../"] or
@@ -126,8 +128,8 @@ class FileAdmin(PrimitivePermissionAwareModelAdmin):
                               kwargs={'folder_id': parent_folder.id})
             else:
                 url = reverse('admin:filer-directory_listing-unfiled_images')
-            url = "%s%s%s" % (url,popup_param(request),
-                              selectfolder_param(request,"&"))
+            url = "%s%s%s" % (url, popup_param(request),
+                              selectfolder_param(request, "&"))
             return HttpResponseRedirect(url)
         return r
 
@@ -140,5 +142,14 @@ class FileAdmin(PrimitivePermissionAwareModelAdmin):
             'change': False,
             'delete': False,
         }
+
+    def display_canonical(self, instance):
+        canonical = instance.canonical_url
+        if canonical:
+            return '<a href="%s">%s</a>' % (canonical, canonical)
+        else:
+            return '-'
+    display_canonical.allow_tags = True
+    display_canonical.short_description = _('canonical URL')
 
 FileAdmin.fieldsets = FileAdmin.build_fieldsets()

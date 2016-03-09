@@ -1,19 +1,19 @@
-#-*- coding: utf-8 -*-
-from django.template.loader import render_to_string
-import inspect
+# -*- coding: utf-8 -*-
+
 import warnings
+
 from django import forms
-from django.conf import settings
-from django.contrib.admin.widgets import ForeignKeyRawIdWidget
 from django.contrib.admin.sites import site
+from django.contrib.admin.widgets import ForeignKeyRawIdWidget
+from django.contrib.staticfiles.templatetags.staticfiles import static
 from django.core.urlresolvers import reverse
 from django.db import models
+from django.template.loader import render_to_string
 from django.utils.safestring import mark_safe
+
+from filer.models import Folder
 from filer.utils.compatibility import truncate_words
 from filer.utils.model_label import get_model_label
-from django.utils.translation import ugettext as _
-from filer.models import Folder
-from filer.settings import FILER_STATICMEDIA_PREFIX
 
 
 class AdminFolderWidget(ForeignKeyRawIdWidget):
@@ -26,7 +26,6 @@ class AdminFolderWidget(ForeignKeyRawIdWidget):
         css_id = attrs.get('id')
         css_id_folder = "%s_folder" % css_id
         css_id_description_txt = "%s_description_txt" % css_id
-        required = self.attrs
         if attrs is None:
             attrs = {}
         related_url = None
@@ -41,16 +40,14 @@ class AdminFolderWidget(ForeignKeyRawIdWidget):
         params = self.url_parameters()
         params['select_folder'] = 1
         if params:
-            url = '?' + '&amp;'.join(
-                            ['%s=%s' % (k, v) for k, v in list(params.items())])
+            url = '?' + '&amp;'.join(['%s=%s' % (k, v) for k, v in list(params.items())])
         else:
             url = ''
-        if not 'class' in attrs:
+        if 'class' not in attrs:
             # The JavaScript looks for this hook.
             attrs['class'] = 'vForeignKeyRawIdAdminField'
         super_attrs = attrs.copy()
-        hidden_input = super(ForeignKeyRawIdWidget, self).render(
-                                                    name, value, super_attrs)
+        hidden_input = super(ForeignKeyRawIdWidget, self).render(name, value, super_attrs)
 
         # TODO: "id_" is hard-coded here. This should instead use the correct
         # API to determine the ID dynamically.
@@ -62,10 +59,10 @@ class AdminFolderWidget(ForeignKeyRawIdWidget):
             'object': obj,
             'clear_id': '%s_clear' % css_id,
             'descid': css_id_description_txt,
-            'noimg': '%sicons/nofile_32x32.png' % FILER_STATICMEDIA_PREFIX,
+            'noimg': 'filer/icons/nofile_32x32.png',
             'foldid': css_id_folder,
             'id': css_id,
-            }
+        }
         html = render_to_string('admin/filer/widgets/admin_folder.html', context)
         return mark_safe(html)
 
@@ -81,8 +78,8 @@ class AdminFolderWidget(ForeignKeyRawIdWidget):
             obj = None
         return obj
 
-    class Media:
-        js = (FILER_STATICMEDIA_PREFIX + 'js/popup_handling.js',)
+    class Media(object):
+        js = (static('filer/js/addons/popup_handling.js'), )
 
 
 class AdminFolderFormField(forms.ModelChoiceField):

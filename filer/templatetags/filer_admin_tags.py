@@ -1,7 +1,12 @@
-from django.conf import settings
+# -*- coding: utf-8 -*-
+from distutils.version import LooseVersion
+
+import django
 from django.template import Library
 
+
 register = Library()
+
 
 def filer_actions(context):
     """
@@ -13,18 +18,9 @@ def filer_actions(context):
 filer_actions = register.inclusion_tag("admin/filer/actions.html", takes_context=True)(filer_actions)
 
 
-ADMIN_ICON_BASE = "%sadmin/img/" % settings.STATIC_URL
-ADMIN_CSS_BASE = "%sadmin/css/" % settings.STATIC_URL
-ADMIN_JS_BASE = "%sadmin/js/" % settings.STATIC_URL
-
-@register.simple_tag
-def admin_icon_base():
-    return ADMIN_ICON_BASE
-
-@register.simple_tag
-def admin_css_base():
-    return ADMIN_CSS_BASE
-
-@register.simple_tag
-def admin_js_base():
-    return ADMIN_JS_BASE
+@register.inclusion_tag('admin/filer/widgets/lookup.html', takes_context=True)
+def render_filer_lookup_button(context):
+    version = LooseVersion(django.get_version())
+    is_18_and_up = version >= LooseVersion('1.8')
+    context['IS_DJANGO_18'] = is_18_and_up and version < LooseVersion('1.9')
+    return context

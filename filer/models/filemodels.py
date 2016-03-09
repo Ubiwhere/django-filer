@@ -1,4 +1,5 @@
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
+
 from __future__ import unicode_literals
 
 import hashlib
@@ -10,7 +11,12 @@ from django.core.files.base import ContentFile
 from django.db import models
 from django.utils.translation import ugettext_lazy as _
 
-from polymorphic import PolymorphicModel, PolymorphicManager
+try:
+    from polymorphic.models import PolymorphicModel
+    from polymorphic.managers import PolymorphicManager
+except ImportError:
+    # django-polymorphic < 0.8
+    from polymorphic import PolymorphicModel, PolymorphicManager
 
 from filer import settings as filer_settings
 from filer.fields.multistorage_file import MultiStorageFileField
@@ -62,8 +68,8 @@ class File(PolymorphicModel, mixins.IconsMixin):
     is_public = models.BooleanField(
         default=filer_settings.FILER_IS_PUBLIC_DEFAULT,
         verbose_name=_('Permissions disabled'),
-        help_text=_('Disable any permission checking for this ' +\
-                    'file. File will be publicly accessible ' +\
+        help_text=_('Disable any permission checking for this '
+                    'file. File will be publicly accessible '
                     'to anyone.'))
 
     objects = FileManager()
@@ -229,6 +235,17 @@ class File(PolymorphicModel, mixins.IconsMixin):
             args=(self.pk,)
         )
 
+    def get_admin_delete_url(self):
+        try:
+            # Django <=1.6
+            model_name = self._meta.module_name
+        except AttributeError:
+            # Django >1.6
+            model_name = self._meta.model_name
+        return urlresolvers.reverse(
+            'admin:{0}_{1}_delete'.format(self._meta.app_label, model_name,),
+            args=(self.pk,))
+
     @property
     def url(self):
         """
@@ -239,6 +256,19 @@ class File(PolymorphicModel, mixins.IconsMixin):
         except:
             r = ''
         return r
+
+    @property
+    def canonical_url(self):
+        url = ''
+        if self.file and self.is_public:
+            try:
+                url = urlresolvers.reverse('canonical', kwargs={
+                    'uploaded_at': self.uploaded_at.strftime('%s'),
+                    'file_id': self.id
+                })
+            except urlresolvers.NoReverseMatch:
+                pass  # No canonical url, return empty string
+        return url
 
     @property
     def path(self):
@@ -286,7 +316,7 @@ class File(PolymorphicModel, mixins.IconsMixin):
     def duplicates(self):
         return File.objects.find_duplicates(self)
 
-    class Meta:
+    class Meta(object):
         app_label = 'filer'
         verbose_name = _('file')
         verbose_name_plural = _('files')
